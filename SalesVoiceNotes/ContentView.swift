@@ -18,6 +18,11 @@ struct ContentView: View {
         .task {
             await service.prepareModel()
         }
+        .onDisappear {
+            if service.isRecording {
+                Task { await service.stopRecording() }
+            }
+        }
     }
 
     // MARK: - Status

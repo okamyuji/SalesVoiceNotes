@@ -6,16 +6,18 @@ extension LiveTranscriptionService {
     // MARK: - 話者分離パラメータ
 
     /// VAD（音声区間検出）の最低エネルギー閾値。無音環境でもノイズフロアを確保する。
-    nonisolated(unsafe) private static let vadFloor: Float = 0.008
+    private nonisolated(unsafe) static let vadFloor: Float = 0.008
     /// VAD閾値の平均エネルギー乗数。全フレーム平均の何倍以上を有声とみなすか。
-    nonisolated(unsafe) private static let vadMeanMultiplier: Float = 1.2
+    private nonisolated(unsafe) static let vadMeanMultiplier: Float = 1.2
     /// 話者分類で参照する近傍フレームの時間窓（秒）。セグメント前後±この値の範囲。
-    nonisolated(unsafe) private static let nearbyFrameWindow: TimeInterval = 0.25
+    private nonisolated(unsafe) static let nearbyFrameWindow: TimeInterval = 0.25
 
     // MARK: - Energy
 
-    /// サンプル配列の平均絶対値を計算する。
-    nonisolated static func computeEnergyFromSamples(_ samples: [Float]) -> Float {
+    /// サンプルの平均絶対値を計算する。ArraySlice等も直接受け取れる。
+    nonisolated static func computeEnergyFromSamples(
+        _ samples: some Collection<Float>
+    ) -> Float {
         guard !samples.isEmpty else { return 0 }
         var sum: Float = 0
         for sample in samples {

@@ -253,9 +253,9 @@ final class LiveTranscriptionService {
         let startTime = result.range.start.seconds
         let endTime = result.range.end.seconds
 
-        if result.isFinal {
-            segments.removeAll { $0.isVolatile }
+        segments.removeAll { $0.isVolatile }
 
+        if result.isFinal {
             let speaker = Self.classifySpeaker(
                 start: startTime, end: endTime, energyFrames: energyFrames
             )
@@ -268,7 +268,6 @@ final class LiveTranscriptionService {
                 segments: segments + [segment], gapTolerance: Self.gapTolerance
             )
         } else {
-            segments.removeAll { $0.isVolatile }
             segments.append(
                 TranscriptSegment(
                     start: startTime, end: endTime,
@@ -317,7 +316,7 @@ extension LiveTranscriptionService {
         var offset = 0
         while offset + frameSamples <= sampleAccumulator.count {
             let slice = sampleAccumulator[offset ..< offset + frameSamples]
-            let energy = Self.computeEnergyFromSamples(Array(slice))
+            let energy = Self.computeEnergyFromSamples(slice)
             let frameIndex = accumulatedSampleCount
             accumulatedSampleCount += frameSamples
 
