@@ -3,6 +3,17 @@ import Foundation
 // MARK: - Pure Logic (static, テスト可能)
 
 extension LiveTranscriptionService {
+    // MARK: - 話者分離パラメータ
+
+    /// VAD（音声区間検出）の最低エネルギー閾値。無音環境でもノイズフロアを確保する。
+    nonisolated(unsafe) private static let vadFloor: Float = 0.008
+    /// VAD閾値の平均エネルギー乗数。全フレーム平均の何倍以上を有声とみなすか。
+    nonisolated(unsafe) private static let vadMeanMultiplier: Float = 1.2
+    /// 話者分類で参照する近傍フレームの時間窓（秒）。セグメント前後±この値の範囲。
+    nonisolated(unsafe) private static let nearbyFrameWindow: TimeInterval = 0.25
+
+    // MARK: - Energy
+
     /// サンプル配列の平均絶対値を計算する。
     nonisolated static func computeEnergyFromSamples(_ samples: [Float]) -> Float {
         guard !samples.isEmpty else { return 0 }
@@ -20,11 +31,12 @@ extension LiveTranscriptionService {
         end: TimeInterval,
         energyFrames: [EnergyFrame]
     ) -> String {
+        // エネルギー情報がない場合、アプリの主利用者である営業担当をデフォルトとする
         guard !energyFrames.isEmpty else { return "営業" }
 
         let allEnergies = energyFrames.map(\.energy)
         let mean = allEnergies.reduce(0, +) / Float(allEnergies.count)
-        let vadThreshold = max(0.008, mean * 1.2)
+        let vadThreshold = max(vadFloor, mean * vadMeanMultiplier)
 
         let voiced = energyFrames.filter { $0.energy >= vadThreshold }
         let voicedMean = voiced.isEmpty
@@ -33,7 +45,7 @@ extension LiveTranscriptionService {
 
         let nearbyFrames = energyFrames.filter { frame in
             let center = (frame.start + frame.end) / 2
-            return center >= start - 0.25 && center <= end + 0.25
+            return center >= start - nearbyFrameWindow && center <= end + nearbyFrameWindow
         }
 
         if nearbyFrames.isEmpty {

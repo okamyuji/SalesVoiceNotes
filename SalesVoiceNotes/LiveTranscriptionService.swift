@@ -1,5 +1,6 @@
 import AVFoundation
 import Observation
+import os
 import Speech
 
 /// 録音＋リアルタイム文字起こし＋話者分離を統合するサービス。
@@ -35,6 +36,10 @@ final class LiveTranscriptionService {
 
     private static let frameDuration: Double = 0.25
     private static let gapTolerance: TimeInterval = 0.6
+    private nonisolated static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "SalesVoiceNotes",
+        category: "LiveTranscription"
+    )
 
     // MARK: - Model Preparation
 
@@ -146,7 +151,12 @@ final class LiveTranscriptionService {
         inputBuilder = nil
 
         if let analyzer {
-            try? await analyzer.finalizeAndFinishThroughEndOfInput()
+            do {
+                try await analyzer.finalizeAndFinishThroughEndOfInput()
+            } catch {
+                Self.logger.error("最終処理に失敗: \(error.localizedDescription)")
+                errorText = "最終処理に失敗: \(error.localizedDescription)"
+            }
         }
         analyzer = nil
 
@@ -155,6 +165,7 @@ final class LiveTranscriptionService {
 
         bufferConverter = nil
         isRecording = false
+        deactivateAudioSession()
         statusText = "完了"
     }
 
@@ -190,6 +201,8 @@ final class LiveTranscriptionService {
                 for try await result in transcriber.results {
                     self?.processTranscriberResult(result)
                 }
+            } catch is CancellationError {
+                return
             } catch {
                 self?.errorText = "文字起こしエラー: \(error.localizedDescription)"
             }
@@ -216,8 +229,11 @@ final class LiveTranscriptionService {
         sampleBuilder: AsyncStream<[Float]>.Continuation
     ) {
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: format) { buffer, _ in
-            if let converted = try? converter.convert(buffer) {
+            do {
+                let converted = try converter.convert(buffer)
                 analyzerBuilder.yield(AnalyzerInput(buffer: converted))
+            } catch {
+                Self.logger.warning("バッファ変換失敗: \(error.localizedDescription)")
             }
 
             guard let floatData = buffer.floatChannelData else { return }
@@ -280,16 +296,17 @@ extension LiveTranscriptionService {
 
         let progress = request.progress
         let progressTask = Task { @MainActor [weak self] in
+            guard let self else { return }
             while !Task.isCancelled {
-                self?.modelProgress = String(
+                modelProgress = String(
                     format: "ダウンロード中... %.0f%%",
                     progress.fractionCompleted * 100
                 )
                 try? await Task.sleep(for: .milliseconds(500))
             }
         }
+        defer { progressTask.cancel() }
         try await request.downloadAndInstall()
-        progressTask.cancel()
     }
 
     private func accumulateSamples(
@@ -297,17 +314,20 @@ extension LiveTranscriptionService {
     ) {
         sampleAccumulator.append(contentsOf: samples)
 
-        while sampleAccumulator.count >= frameSamples {
-            let slice = Array(sampleAccumulator.prefix(frameSamples))
-            sampleAccumulator.removeFirst(frameSamples)
-
-            let energy = Self.computeEnergyFromSamples(slice)
+        var offset = 0
+        while offset + frameSamples <= sampleAccumulator.count {
+            let slice = sampleAccumulator[offset ..< offset + frameSamples]
+            let energy = Self.computeEnergyFromSamples(Array(slice))
             let frameIndex = accumulatedSampleCount
             accumulatedSampleCount += frameSamples
 
             let start = Double(frameIndex) / sampleRate
             let end = Double(frameIndex + frameSamples) / sampleRate
             energyFrames.append(EnergyFrame(start: start, end: end, energy: energy))
+            offset += frameSamples
+        }
+        if offset > 0 {
+            sampleAccumulator.removeFirst(offset)
         }
     }
 
@@ -357,5 +377,12 @@ extension LiveTranscriptionService {
         analyzer = nil
         bufferConverter = nil
         isRecording = false
+        deactivateAudioSession()
+    }
+
+    private func deactivateAudioSession() {
+        try? AVAudioSession.sharedInstance().setActive(
+            false, options: .notifyOthersOnDeactivation
+        )
     }
 }

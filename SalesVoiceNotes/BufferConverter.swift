@@ -30,7 +30,13 @@ final class BufferConverter: @unchecked Sendable {
             }
 
             var error: NSError?
+            var hasProvidedInput = false
             converter.convert(to: outputBuffer, error: &error) { _, outStatus in
+                if hasProvidedInput {
+                    outStatus.pointee = .endOfStream
+                    return nil
+                }
+                hasProvidedInput = true
                 outStatus.pointee = .haveData
                 return inputBuffer
             }
