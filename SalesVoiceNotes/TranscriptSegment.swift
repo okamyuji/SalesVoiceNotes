@@ -6,7 +6,7 @@ nonisolated struct TranscriptSegment: Identifiable, Sendable {
     let end: TimeInterval
     let speaker: String // "営業" or "顧客"
     let text: String
-    var isVolatile: Bool
+    let isVolatile: Bool
 
     init(
         id: UUID = UUID(),
