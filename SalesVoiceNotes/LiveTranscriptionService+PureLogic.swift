@@ -83,6 +83,7 @@ extension LiveTranscriptionService {
 
             if sameSpeaker, closeInTime, !current.isVolatile, !segment.isVolatile {
                 current = TranscriptSegment(
+                    id: current.id,
                     start: current.start, end: segment.end,
                     speaker: current.speaker,
                     text: current.text + segment.text, isVolatile: false

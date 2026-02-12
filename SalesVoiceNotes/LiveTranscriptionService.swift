@@ -160,6 +160,7 @@ final class LiveTranscriptionService {
         transcriptionTask = nil
 
         bufferConverter = nil
+        segments = Self.mergeAdjacent(segments: segments, gapTolerance: Self.gapTolerance)
         isRecording = false
         deactivateAudioSession()
         statusText = "完了"
@@ -296,6 +297,7 @@ final class LiveTranscriptionService {
                last.speaker == segment.speaker,
                (segment.start - last.end) <= Self.gapTolerance {
                 segments[segments.count - 1] = TranscriptSegment(
+                    id: last.id,
                     start: last.start, end: segment.end,
                     speaker: last.speaker,
                     text: last.text + segment.text, isVolatile: false
