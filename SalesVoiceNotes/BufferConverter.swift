@@ -20,7 +20,7 @@ final class BufferConverter: @unchecked Sendable {
         try converter.withLock { converter in
             let ratio = outputFormat.sampleRate / inputBuffer.format.sampleRate
             let outputFrameCount = AVAudioFrameCount(
-                Double(inputBuffer.frameLength) * ratio
+                ceil(Double(inputBuffer.frameLength) * ratio)
             )
             guard let outputBuffer = AVAudioPCMBuffer(
                 pcmFormat: outputFormat,

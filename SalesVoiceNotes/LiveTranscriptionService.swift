@@ -264,9 +264,18 @@ final class LiveTranscriptionService {
                 speaker: speaker, text: text, isVolatile: false
             )
 
-            segments = Self.mergeAdjacent(
-                segments: segments + [segment], gapTolerance: Self.gapTolerance
-            )
+            if let last = segments.last,
+               !last.isVolatile,
+               last.speaker == segment.speaker,
+               (segment.start - last.end) <= Self.gapTolerance {
+                segments[segments.count - 1] = TranscriptSegment(
+                    start: last.start, end: segment.end,
+                    speaker: last.speaker,
+                    text: last.text + segment.text, isVolatile: false
+                )
+            } else {
+                segments.append(segment)
+            }
         } else {
             segments.append(
                 TranscriptSegment(
@@ -380,8 +389,12 @@ extension LiveTranscriptionService {
     }
 
     private func deactivateAudioSession() {
-        try? AVAudioSession.sharedInstance().setActive(
-            false, options: .notifyOthersOnDeactivation
-        )
+        do {
+            try AVAudioSession.sharedInstance().setActive(
+                false, options: .notifyOthersOnDeactivation
+            )
+        } catch {
+            Self.logger.warning("オーディオセッション無効化に失敗: \(error.localizedDescription)")
+        }
     }
 }
