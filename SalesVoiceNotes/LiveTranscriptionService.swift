@@ -28,8 +28,6 @@ final class LiveTranscriptionService {
     private var sampleConsumerTask: Task<Void, Never>?
     private var energyFrames: [EnergyFrame] = []
 
-    private var sampleAccumulator: [Float] = []
-    private var accumulatedSampleCount: Int = 0
     private var tapSampleRate: Double = 16000
 
     // MARK: - Constants
@@ -145,8 +143,6 @@ final class LiveTranscriptionService {
         await sampleConsumerTask?.value
         sampleConsumerTask = nil
 
-        flushAccumulator()
-
         inputBuilder?.finish()
         inputBuilder = nil
 
@@ -174,8 +170,6 @@ final class LiveTranscriptionService {
     private func resetState() {
         segments = []
         energyFrames = []
-        sampleAccumulator = []
-        accumulatedSampleCount = 0
     }
 
     private func configureAudioSession() throws {
@@ -212,13 +206,46 @@ final class LiveTranscriptionService {
     private func startSampleConsumerTask(sampleStream: AsyncStream<[Float]>) {
         let sampleRate = tapSampleRate
         let frameSamples = Int(sampleRate * Self.frameDuration)
-        sampleConsumerTask = Task { [weak self] in
+        sampleConsumerTask = Task.detached(priority: .utility) { [weak self] in
+            var accumulator: [Float] = []
+            var totalSampleCount = 0
+
             for await samples in sampleStream {
-                self?.accumulateSamples(
-                    samples, sampleRate: sampleRate, frameSamples: frameSamples
+                accumulator.append(contentsOf: samples)
+
+                var offset = 0
+                var newFrames: [EnergyFrame] = []
+                while offset + frameSamples <= accumulator.count {
+                    let slice = accumulator[offset ..< offset + frameSamples]
+                    let energy = LiveTranscriptionService.computeEnergyFromSamples(slice)
+                    let start = Double(totalSampleCount) / sampleRate
+                    totalSampleCount += frameSamples
+                    let end = Double(totalSampleCount) / sampleRate
+                    newFrames.append(EnergyFrame(start: start, end: end, energy: energy))
+                    offset += frameSamples
+                }
+                if offset > 0 {
+                    accumulator.removeFirst(offset)
+                }
+                if !newFrames.isEmpty {
+                    await self?.appendEnergyFrames(newFrames)
+                }
+            }
+
+            // フレーム未満の残余サンプルをフラッシュ
+            if !accumulator.isEmpty {
+                let energy = LiveTranscriptionService.computeEnergyFromSamples(accumulator)
+                let start = Double(totalSampleCount) / sampleRate
+                let end = Double(totalSampleCount + accumulator.count) / sampleRate
+                await self?.appendEnergyFrames(
+                    [EnergyFrame(start: start, end: end, energy: energy)]
                 )
             }
         }
+    }
+
+    private func appendEnergyFrames(_ frames: [EnergyFrame]) {
+        energyFrames.append(contentsOf: frames)
     }
 
     private func installAudioTap(
@@ -315,41 +342,6 @@ extension LiveTranscriptionService {
         }
         defer { progressTask.cancel() }
         try await request.downloadAndInstall()
-    }
-
-    private func accumulateSamples(
-        _ samples: [Float], sampleRate: Double, frameSamples: Int
-    ) {
-        sampleAccumulator.append(contentsOf: samples)
-
-        var offset = 0
-        while offset + frameSamples <= sampleAccumulator.count {
-            let slice = sampleAccumulator[offset ..< offset + frameSamples]
-            let energy = Self.computeEnergyFromSamples(slice)
-            let frameIndex = accumulatedSampleCount
-            accumulatedSampleCount += frameSamples
-
-            let start = Double(frameIndex) / sampleRate
-            let end = Double(frameIndex + frameSamples) / sampleRate
-            energyFrames.append(EnergyFrame(start: start, end: end, energy: energy))
-            offset += frameSamples
-        }
-        if offset > 0 {
-            sampleAccumulator.removeFirst(offset)
-        }
-    }
-
-    private func flushAccumulator() {
-        guard !sampleAccumulator.isEmpty else { return }
-        let energy = Self.computeEnergyFromSamples(sampleAccumulator)
-        let frameIndex = accumulatedSampleCount
-        let count = sampleAccumulator.count
-        accumulatedSampleCount += count
-
-        let start = Double(frameIndex) / tapSampleRate
-        let end = Double(frameIndex + count) / tapSampleRate
-        energyFrames.append(EnergyFrame(start: start, end: end, energy: energy))
-        sampleAccumulator.removeAll()
     }
 
     private func requestMicPermission() async -> Bool {
