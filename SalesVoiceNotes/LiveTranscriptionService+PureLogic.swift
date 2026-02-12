@@ -6,11 +6,11 @@ extension LiveTranscriptionService {
     // MARK: - 話者分離パラメータ
 
     /// VAD（音声区間検出）の最低エネルギー閾値。無音環境でもノイズフロアを確保する。
-    private nonisolated(unsafe) static let vadFloor: Float = 0.008
+    private nonisolated static let vadFloor: Float = 0.008
     /// VAD閾値の平均エネルギー乗数。全フレーム平均の何倍以上を有声とみなすか。
-    private nonisolated(unsafe) static let vadMeanMultiplier: Float = 1.2
+    private nonisolated static let vadMeanMultiplier: Float = 1.2
     /// 話者分類で参照する近傍フレームの時間窓（秒）。セグメント前後±この値の範囲。
-    private nonisolated(unsafe) static let nearbyFrameWindow: TimeInterval = 0.25
+    private nonisolated static let nearbyFrameWindow: TimeInterval = 0.25
 
     // MARK: - Energy
 
