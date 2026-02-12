@@ -161,6 +161,7 @@ final class LiveTranscriptionService {
 
         bufferConverter = nil
         segments = Self.mergeAdjacent(segments: segments, gapTolerance: Self.gapTolerance)
+        energyFrames = []
         isRecording = false
         deactivateAudioSession()
         statusText = "完了"
@@ -382,6 +383,7 @@ extension LiveTranscriptionService {
         sampleConsumerTask = nil
         analyzer = nil
         bufferConverter = nil
+        energyFrames = []
         isRecording = false
         deactivateAudioSession()
     }
