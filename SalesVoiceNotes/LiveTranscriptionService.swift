@@ -227,7 +227,7 @@ final class LiveTranscriptionService {
                     newFrames.append(EnergyFrame(start: start, end: end, energy: energy))
                     readOffset += frameSamples
                 }
-                // 消費済み領域が閾値を超えたら圧縮（償却O(1)）
+                // 消費済み領域が閾値を超えたら圧縮（頻度を抑えシフト回数を削減）
                 if readOffset > compactThreshold {
                     accumulator.removeSubrange(..<readOffset)
                     readOffset = 0

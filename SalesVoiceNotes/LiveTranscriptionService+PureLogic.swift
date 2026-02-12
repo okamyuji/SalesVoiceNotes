@@ -50,16 +50,8 @@ extension LiveTranscriptionService {
             return center >= start - nearbyFrameWindow && center <= end + nearbyFrameWindow
         }
 
-        if nearbyFrames.isEmpty {
-            let closest = energyFrames.min { lhs, rhs in
-                let lhsCenter = (lhs.start + lhs.end) / 2
-                let rhsCenter = (rhs.start + rhs.end) / 2
-                let mid = (start + end) / 2
-                return abs(lhsCenter - mid) < abs(rhsCenter - mid)
-            }
-            let closestEnergy = closest?.energy ?? 0
-            return closestEnergy >= voicedMean ? "営業" : "顧客"
-        }
+        // 近傍にフレームがない場合、遠方のフレームは信頼性が低いためデフォルトを返す
+        guard !nearbyFrames.isEmpty else { return "営業" }
 
         let avgEnergy = nearbyFrames.map(\.energy).reduce(0, +) / Float(nearbyFrames.count)
         return avgEnergy >= voicedMean ? "営業" : "顧客"
