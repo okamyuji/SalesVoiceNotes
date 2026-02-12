@@ -207,26 +207,29 @@ final class LiveTranscriptionService {
     private func startSampleConsumerTask(sampleStream: AsyncStream<[Float]>) {
         let sampleRate = tapSampleRate
         let frameSamples = Int(sampleRate * Self.frameDuration)
+        let compactThreshold = frameSamples * 4
         sampleConsumerTask = Task.detached(priority: .utility) { [weak self] in
             var accumulator: [Float] = []
+            var readOffset = 0
             var totalSampleCount = 0
 
             for await samples in sampleStream {
                 accumulator.append(contentsOf: samples)
 
-                var offset = 0
                 var newFrames: [EnergyFrame] = []
-                while offset + frameSamples <= accumulator.count {
-                    let slice = accumulator[offset ..< offset + frameSamples]
+                while readOffset + frameSamples <= accumulator.count {
+                    let slice = accumulator[readOffset ..< readOffset + frameSamples]
                     let energy = LiveTranscriptionService.computeEnergyFromSamples(slice)
                     let start = Double(totalSampleCount) / sampleRate
                     totalSampleCount += frameSamples
                     let end = Double(totalSampleCount) / sampleRate
                     newFrames.append(EnergyFrame(start: start, end: end, energy: energy))
-                    offset += frameSamples
+                    readOffset += frameSamples
                 }
-                if offset > 0 {
-                    accumulator.removeFirst(offset)
+                // 消費済み領域が閾値を超えたら圧縮（償却O(1)）
+                if readOffset > compactThreshold {
+                    accumulator.removeSubrange(..<readOffset)
+                    readOffset = 0
                 }
                 if !newFrames.isEmpty {
                     await self?.appendEnergyFrames(newFrames)
@@ -234,10 +237,11 @@ final class LiveTranscriptionService {
             }
 
             // フレーム未満の残余サンプルをフラッシュ
-            if !accumulator.isEmpty {
-                let energy = LiveTranscriptionService.computeEnergyFromSamples(accumulator)
+            let remaining = accumulator[readOffset...]
+            if !remaining.isEmpty {
+                let energy = LiveTranscriptionService.computeEnergyFromSamples(remaining)
                 let start = Double(totalSampleCount) / sampleRate
-                let end = Double(totalSampleCount + accumulator.count) / sampleRate
+                let end = Double(totalSampleCount + remaining.count) / sampleRate
                 await self?.appendEnergyFrames(
                     [EnergyFrame(start: start, end: end, energy: energy)]
                 )
@@ -271,7 +275,11 @@ final class LiveTranscriptionService {
             sampleBuilder.yield(samples)
         }
     }
+}
 
+// MARK: - Private Helpers
+
+extension LiveTranscriptionService {
     // MARK: - Transcription Result Processing
 
     private func processTranscriberResult(_ result: SpeechTranscriber.Result) {
@@ -281,7 +289,7 @@ final class LiveTranscriptionService {
         let startTime = result.range.start.seconds
         let endTime = result.range.end.seconds
 
-        segments.removeAll { $0.isVolatile }
+        if segments.last?.isVolatile == true { segments.removeLast() }
 
         if result.isFinal {
             let speaker = Self.classifySpeaker(
@@ -314,11 +322,7 @@ final class LiveTranscriptionService {
             )
         }
     }
-}
 
-// MARK: - Private Helpers
-
-extension LiveTranscriptionService {
     private func downloadModel(locale: Locale) async throws {
         statusText = "日本語モデルをダウンロード中..."
         modelProgress = "ダウンロード中..."
