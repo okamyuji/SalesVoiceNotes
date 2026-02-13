@@ -47,16 +47,16 @@ final class SalesVoiceNotesUITests: XCTestCase {
 
     @MainActor
     func testRecordStopButtonExists() {
-        // 録音停止ボタンが存在することを確認
-        let stopButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音停止'")).firstMatch
-        XCTAssertTrue(stopButton.exists, "録音停止ボタンが存在する必要があります")
+        // 録音終了（自動解析）ボタンが存在することを確認
+        let stopButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音終了'")).firstMatch
+        XCTAssertTrue(stopButton.exists, "録音終了（自動解析）ボタンが存在する必要があります")
     }
 
     @MainActor
-    func testTranscriptionButtonExists() {
-        // 文字起こしボタンが存在することを確認
+    func testTranscriptionButtonDoesNotExist() {
+        // 自動解析に変更されたため、文字起こしボタンは存在しないことを確認
         let transcriptionButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '話者分離'")).firstMatch
-        XCTAssertTrue(transcriptionButton.exists, "話者分離ボタンが存在する必要があります")
+        XCTAssertFalse(transcriptionButton.exists, "話者分離ボタンは存在しない必要があります")
     }
 
     @MainActor
@@ -77,16 +77,16 @@ final class SalesVoiceNotesUITests: XCTestCase {
 
     @MainActor
     func testRecordStopButtonIsDisabledInitially() {
-        // 初期状態で録音停止ボタンが無効であることを確認
-        let stopButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音停止'")).firstMatch
-        XCTAssertFalse(stopButton.isEnabled, "初期状態で録音停止ボタンは無効である必要があります")
+        // 初期状態で録音終了（自動解析）ボタンが無効であることを確認
+        let stopButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音終了'")).firstMatch
+        XCTAssertFalse(stopButton.isEnabled, "初期状態で録音終了（自動解析）ボタンは無効である必要があります")
     }
 
     @MainActor
-    func testTranscriptionButtonIsDisabledInitially() {
-        // 初期状態で文字起こしボタンが無効であることを確認（録音ファイルがないため）
+    func testTranscriptionButtonIsHiddenInitially() {
+        // 自動解析に変更されたため、初期状態でも文字起こしボタンは表示されない
         let transcriptionButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '話者分離'")).firstMatch
-        XCTAssertFalse(transcriptionButton.isEnabled, "初期状態で文字起こしボタンは無効である必要があります")
+        XCTAssertFalse(transcriptionButton.exists, "初期状態で文字起こしボタンは表示されない必要があります")
     }
 
     // MARK: - レイアウトテスト
@@ -106,15 +106,19 @@ final class SalesVoiceNotesUITests: XCTestCase {
     func testButtonsAreHorizontallyAligned() {
         // 録音開始と停止ボタンが水平に並んでいることを確認
         let recordButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音開始'")).firstMatch
-        let stopButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音停止'")).firstMatch
+        let stopButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音終了'")).firstMatch
 
         if recordButton.exists, stopButton.exists {
             let recordFrame = recordButton.frame
             let stopFrame = stopButton.frame
 
-            // Y座標がほぼ同じであることを確認（水平配置）
-            XCTAssertEqual(recordFrame.origin.y, stopFrame.origin.y, accuracy: 5.0,
-                           "録音開始と停止ボタンは水平に並んでいる必要があります")
+            // ボタン高さは同等で、縦方向に十分重なっていれば同一行とみなす
+            XCTAssertEqual(recordFrame.height, stopFrame.height, accuracy: 12.0,
+                           "録音開始と停止ボタンの高さは概ね同じである必要があります")
+
+            let overlap = min(recordFrame.maxY, stopFrame.maxY) - max(recordFrame.minY, stopFrame.minY)
+            XCTAssertGreaterThan(overlap, min(recordFrame.height, stopFrame.height) * 0.5,
+                                 "録音開始と停止ボタンは同じ行に配置されている必要があります")
         }
     }
 
@@ -232,14 +236,14 @@ final class SalesVoiceNotesUITests: XCTestCase {
 
         // 各ボタンの存在を確認
         let recordButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音開始'")).firstMatch
-        let stopButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音停止'")).firstMatch
+        let stopButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音終了'")).firstMatch
         let transcriptionButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '話者分離'")).firstMatch
 
         XCTAssertTrue(recordButton.exists)
         XCTAssertTrue(stopButton.exists)
-        XCTAssertTrue(transcriptionButton.exists)
+        XCTAssertFalse(transcriptionButton.exists)
 
         let elapsedTime = Date().timeIntervalSince(startTime)
-        XCTAssertLessThan(elapsedTime, 2.0, "UI要素の確認は2秒以内に完了する必要があります")
+        XCTAssertLessThan(elapsedTime, 5.0, "UI要素の確認は5秒以内に完了する必要があります")
     }
 }

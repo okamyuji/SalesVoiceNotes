@@ -35,6 +35,14 @@ import Speech
     // MARK: - Audio Processing Service
 
     final class AudioProcessingService {
+        /// 認識トークンを連結して表示用テキストを作成する
+        static func joinRecognizedTokens(_ tokens: [String]) -> String {
+            tokens
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined()
+        }
+
         // MARK: - Internal Types
 
         /// 音声認識で取得した単語単位の情報

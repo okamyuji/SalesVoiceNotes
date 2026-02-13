@@ -53,14 +53,14 @@ final class SalesVoiceNotesUITestsLaunchTests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        // 全てのボタンが表示されていることを確認
+        // 録音開始・録音終了（自動解析）ボタンが表示されていることを確認
         let recordButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音開始'")).firstMatch
-        let stopButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音停止'")).firstMatch
+        let stopButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '録音終了'")).firstMatch
         let transcriptionButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '話者分離'")).firstMatch
 
         XCTAssertTrue(recordButton.waitForExistence(timeout: 5.0), "録音開始ボタンが表示される必要があります")
-        XCTAssertTrue(stopButton.exists, "録音停止ボタンが表示される必要があります")
-        XCTAssertTrue(transcriptionButton.exists, "話者分離ボタンが表示される必要があります")
+        XCTAssertTrue(stopButton.exists, "録音終了（自動解析）ボタンが表示される必要があります")
+        XCTAssertFalse(transcriptionButton.exists, "話者分離ボタンは表示されない必要があります")
 
         // スクリーンショットを撮影
         let attachment = XCTAttachment(screenshot: app.screenshot())

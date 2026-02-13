@@ -81,14 +81,14 @@ import SwiftUI
                             .background(recorder.isRecording ? Color.gray : Color.blue)
                             .foregroundColor(.white)
                             .cornerRadius(10)
-                            .disabled(recorder.isRecording)
+                            .disabled(recorder.isRecording || isProcessing)
 
                             Button {
-                                recorder.stopRecording()
+                                Task { await stopRecordingAndRunProcessing() }
                             } label: {
                                 HStack {
                                     Image(systemName: "stop.fill")
-                                    Text("録音停止")
+                                    Text("録音終了（自動解析）")
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding()
@@ -96,25 +96,18 @@ import SwiftUI
                             .background(recorder.isRecording ? Color.red : Color.gray)
                             .foregroundColor(.white)
                             .cornerRadius(10)
-                            .disabled(!recorder.isRecording)
+                            .disabled(!recorder.isRecording || isProcessing)
                         }
 
-                        // MARK: - 文字起こしボタン
-
-                        Button {
-                            Task { await runProcessing() }
-                        } label: {
+                        if isProcessing {
                             HStack {
-                                if isProcessing { ProgressView().padding(.trailing, 6) }
-                                Text(isProcessing ? "解析中..." : "話者分離 + 文字起こし（オフライン）")
+                                ProgressView().padding(.trailing, 6)
+                                Text("話者分離 + 文字起こしを自動解析中...")
                             }
                             .frame(maxWidth: .infinity)
-                            .padding()
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
                         }
-                        .background(Color.green)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                        .disabled(isProcessing || recorder.isRecording || recorder.lastSavedURL == nil)
 
                         if let errorText {
                             Text(errorText)
@@ -185,6 +178,11 @@ import SwiftUI
                 errorText = error.localizedDescription
             }
             isProcessing = false
+        }
+
+        private func stopRecordingAndRunProcessing() async {
+            recorder.stopRecording()
+            await runProcessing()
         }
 
         private func format(_ t: TimeInterval) -> String {

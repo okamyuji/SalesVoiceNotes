@@ -30,23 +30,29 @@ struct AppPermissionConfigurationTests {
     }
 
     private func loadAppInfoPlist() throws -> [String: Any] {
-        let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        let projectRoot = testsDirectory.deletingLastPathComponent()
-        let plistURL = projectRoot
-            .appendingPathComponent("SalesVoiceNotes")
-            .appendingPathComponent("Info.plist")
-
-        guard let plist = NSDictionary(contentsOf: plistURL) as? [String: Any] else {
-            throw NSError(
-                domain: "AppPermissionConfigurationTests",
-                code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Info.plistを読み込めません: \(plistURL.path)"]
-            )
+        if let plist = Bundle.main.infoDictionary {
+            return plist
         }
 
-        return plist
+        if let plist = Bundle(for: BundleToken.self).infoDictionary {
+            return plist
+        }
+
+        if let infoPlistPath = Bundle.main.path(forResource: "Info", ofType: "plist"),
+           let plist = NSDictionary(contentsOfFile: infoPlistPath) as? [String: Any]
+        {
+            return plist
+        }
+
+        throw NSError(
+            domain: "AppPermissionConfigurationTests",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Info.plistを読み込めません: Bundle.infoDictionaryが空です"]
+        )
     }
 }
+
+private final class BundleToken {}
 
 // MARK: - TranscriptSegment Tests
 
@@ -78,6 +84,7 @@ struct TranscriptSegmentTests {
     }
 
     @Test("TranscriptSegmentはHashableプロトコルに準拠する")
+    @MainActor
     func hashable() {
         let segment = TranscriptSegment(start: 0.0, end: 5.0, speaker: "話者1", text: "テスト")
         var set = Set<TranscriptSegment>()

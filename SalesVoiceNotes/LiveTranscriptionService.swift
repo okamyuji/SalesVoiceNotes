@@ -294,7 +294,7 @@ final class LiveTranscriptionService {
         energyFrames.append(contentsOf: frames)
     }
 
-    nonisolated private func installAudioTap(
+    private nonisolated func installAudioTap(
         on inputNode: AVAudioInputNode,
         format: AVAudioFormat,
         analyzerBuilder: AsyncStream<AnalyzerInput>.Continuation,
@@ -324,7 +324,7 @@ final class LiveTranscriptionService {
         }
     }
 
-    nonisolated private func makeAnalyzerInput(
+    private nonisolated func makeAnalyzerInput(
         buffer: AVAudioPCMBuffer,
         bufferTime: AVAudioTime
     ) -> AnalyzerInput {
@@ -365,7 +365,8 @@ extension LiveTranscriptionService {
             if let last = segments.last,
                !last.isVolatile,
                last.speaker == segment.speaker,
-               (segment.start - last.end) <= Self.gapTolerance {
+               (segment.start - last.end) <= Self.gapTolerance
+            {
                 segments[segments.count - 1] = TranscriptSegment(
                     id: last.id,
                     start: last.start, end: segment.end,
@@ -409,7 +410,7 @@ extension LiveTranscriptionService {
         try await request.downloadAndInstall()
     }
 
-    nonisolated private func requestMicPermission() async -> Bool {
+    private nonisolated func requestMicPermission() async -> Bool {
         await withCheckedContinuation { continuation in
             AVAudioApplication.requestRecordPermission { granted in
                 continuation.resume(returning: granted)
@@ -417,7 +418,7 @@ extension LiveTranscriptionService {
         }
     }
 
-    nonisolated private func requestSpeechAuthorization() async -> Bool {
+    private nonisolated func requestSpeechAuthorization() async -> Bool {
         await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { status in
                 continuation.resume(returning: status == .authorized)
