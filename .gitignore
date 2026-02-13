@@ -12,6 +12,8 @@ xcuserdata/
 *.moved-aside
 *.xcworkspace
 !*.xcodeproj/project.xcworkspace
+*.ipa
+SalesVoiceNotes 20*/
 
 # Swift Package Manager
 .build/
@@ -34,4 +36,3 @@ fastlane/test_output
 
 # Code Injection
 iOSInjectionProject/
-
