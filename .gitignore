@@ -36,3 +36,6 @@ fastlane/test_output
 
 # Code Injection
 iOSInjectionProject/
+
+# Xcode export artifacts
+HomeCareVoiceLog */
