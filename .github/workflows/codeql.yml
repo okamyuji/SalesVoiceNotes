@@ -1,0 +1,56 @@
+name: CodeQL
+
+# CodeQL の default setup から advanced setup へ移行したもの。
+#
+# default setup は Swift を autobuild で解析しようとするが、本プロジェクトの
+# Xcode プロジェクトは Xcode 16 以降の fileSystemSynchronized グループを使って
+# おり、project.pbxproj に .swift ファイルの明示的な参照が 1 件も無い。
+# CodeQL の Swift autobuilder は pbxproj を解析してターゲットを探すため
+#   [no-swift-target] All targets found within Xcode projects or workspaces
+#   either contain no Swift source files, or are tests.
+# で必ず失敗する。Swift は buildless (build-mode: none) に非対応なので、
+# xcodebuild を明示的に走らせる manual ビルドに切り替える。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # default setup と同等の定期実行を維持する（毎週日曜 15:00 UTC）
+    - cron: "0 15 * * 0"
+
+jobs:
+  analyze:
+    name: Analyze (swift)
+    # Swift の解析には Xcode が必要なため macOS ランナーを使う
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: swift
+          build-mode: manual
+
+      - name: Build
+        # シミュレータ向け・署名なしでビルドする。CI には署名証明書が無く、
+        # CodeQL は実機バイナリではなくコンパイル過程の追跡だけを必要とする。
+        run: |
+          xcodebuild build \
+            -project SalesVoiceNotes.xcodeproj \
+            -scheme SalesVoiceNotes \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:swift"
