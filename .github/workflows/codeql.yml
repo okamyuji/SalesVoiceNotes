@@ -23,8 +23,12 @@ on:
 jobs:
   analyze:
     name: Analyze (swift)
-    # Swift の解析には Xcode が必要なため macOS ランナーを使う
-    runs-on: macos-15
+    # Swift の解析には Xcode が必要なため macOS ランナーを使う。
+    # macos-15 の既定 Xcode は 16.4 で、本アプリが使う SpeechAnalyzer /
+    # SpeechTranscriber / AnalyzerInput (iOS 26 の Speech framework) を解決できず
+    # cannot find type で失敗する。IPHONEOS_DEPLOYMENT_TARGET が 26.1 のため
+    # 既定 Xcode が 26.6 の macos-26 を使う。
+    runs-on: macos-26
     timeout-minutes: 60
     permissions:
       contents: read
