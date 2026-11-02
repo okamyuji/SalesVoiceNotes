@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import os
 import Synchronization
 
 /// マイク入力フォーマットからSpeechAnalyzer要求フォーマットへ音声バッファを変換する。
@@ -30,7 +31,9 @@ final class BufferConverter: @unchecked Sendable {
             }
 
             var error: NSError?
-            let hasProvidedInput = Mutex(false)
+            // 入力ブロックはエスケープするクロージャなので、コピーできない Mutex を捕まえると
+            // Swift 6.4 のコンパイラが「copy of noncopyable typed value」で落ちる
+            let hasProvidedInput = OSAllocatedUnfairLock(initialState: false)
             converter.convert(to: outputBuffer, error: &error) { _, outStatus in
                 let shouldReturnInput = hasProvidedInput.withLock { hasProvided in
                     if hasProvided {

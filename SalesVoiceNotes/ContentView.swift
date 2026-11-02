@@ -88,7 +88,10 @@ import SwiftUI
                             } label: {
                                 HStack {
                                     Image(systemName: "stop.fill")
+                                    // 横に並ぶ録音開始ボタンと高さをそろえるため、折り返さずに縮める
                                     Text("録音終了（自動解析）")
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.6)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding()

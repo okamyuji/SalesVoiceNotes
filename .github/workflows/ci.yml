@@ -10,6 +10,28 @@ permissions:
   contents: read
 
 jobs:
+  # CodeQL の手動ビルドと同じ macos-26 で、単体テストと UI テストをシミュレーターで動かす
+  test:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      # ランナーの image ごとにシミュレーターの機種と OS が変わるので、いちばん新しい iOS の iPhone を実行時に選ぶ。
+      # 名前の順では古い iOS が先に来て、配備の最低版を満たさない。
+      # 3 コアのランナーでシミュレーターを並べると UI テストの時間の判定が落ちるので、1 台で順に動かす
+      - name: Test
+        run: |
+          udid=$(xcrun simctl list devices available -j | jq -r '[.devices | to_entries[] | select(.key | test("iOS-[0-9]")) | (.key | capture("iOS-(?<a>[0-9]+)-(?<b>[0-9]+)") | [(.a | tonumber), (.b | tonumber)]) as $v | .value[] | select(.name | startswith("iPhone")) | {v: $v, udid}] | max_by(.v) | .udid')
+          test -n "$udid" && test "$udid" != null
+          xcodebuild test \
+            -project SalesVoiceNotes.xcodeproj \
+            -scheme SalesVoiceNotes \
+            -destination "id=$udid" \
+            -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO
+
   security:
     permissions:
       contents: read
